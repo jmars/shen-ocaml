@@ -1,0 +1,15 @@
+opam-version: "1.2"
+maintainer: "stephen.dolan@cl.cam.ac.uk"
+authors: ["Stephen Dolan"]
+homepage: "https://github.com/stedolan/ppx_stage"
+bug-reports: "https://github.com/stedolan/ppx_stage/issues"
+dev-repo: "https://github.com/stedolan/ppx_stage.git"
+license: "MIT"
+build:
+[[ "dune" "build" "-p" name "-j" jobs ]]
+available: [ ocaml-version >= "4.04" ]
+depends: [
+  "dune" {build & >= "1.0"}
+  "ocaml-migrate-parsetree"
+  "ppx_tools_versioned"
+]
