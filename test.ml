@@ -19,16 +19,12 @@ module Shen'1 =
         | x when (Obj.tag x) = Obj.closure_tag -> x |> Obj.obj
         | _ -> raise (Exn "Invalid function application")
     let define n f = Hashtbl.add functions n (Obj.repr f)
-    let sfunction (s : string) = Hashtbl.find functions s
-    let check_symbol (s : string) =
-      if Hashtbl.mem functions s
-      then Hashtbl.find functions s
-      else (Symbol s) |> Obj.repr
     let assert_bool (s : t) =
       match s with | Boolean b -> b | _ -> raise (Exn "Expected a bool")
   end
 let _ =
   let _ = (fun x -> fun x -> x) |> (Shen'1.define "add") in
   let _ =
-    (Obj.obj (Shen'1.sfunction "add") (Shen'1.Number 1.)) (Shen'1.Number 2.) in
+    (Obj.obj (Hashtbl.find Shen'1.functions "add") (Shen'1.Number 1.))
+      (Shen'1.Number 2.) in
   ()

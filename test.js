@@ -28,18 +28,6 @@ function define(n, f) {
   return Hashtbl.add(functions, n, f);
 }
 
-function sfunction(s) {
-  return Hashtbl.find(functions, s);
-}
-
-function check_symbol(s) {
-  if (Hashtbl.mem(functions, s)) {
-    return Hashtbl.find(functions, s);
-  } else {
-    return /* Symbol */Block.__(0, [s]);
-  }
-}
-
 function assert_bool(s) {
   if (s.tag === 2) {
     return s[0];
@@ -57,8 +45,6 @@ var Shen$prime1 = /* module */[
   /* globals */globals,
   /* assert_function */assert_function,
   /* define */define,
-  /* sfunction */sfunction,
-  /* check_symbol */check_symbol,
   /* assert_bool */assert_bool
 ];
 

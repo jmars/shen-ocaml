@@ -23,14 +23,6 @@ module%code Shen = struct[@code]
 
   let define n f = Hashtbl.add functions n (Obj.repr f)
 
-  let sfunction (s : string) = Hashtbl.find functions s
-
-  let check_symbol (s : string) =
-    if Hashtbl.mem functions s then
-      Hashtbl.find functions s 
-    else
-      Symbol(s) |> Obj.repr
-
   let assert_bool (s : t) = match s with
     | Boolean(b) -> b
     | _ -> raise (Exn "Expected a bool")
@@ -56,7 +48,7 @@ let rec compile (env : env) (expr : ast)
     if Env.mem v env.lexical then
       [%code [%e Env.find v env.lexical]]
     else
-      [%code Shen.check_symbol [%e Ppx_stage.Lift.string v] |> Obj.obj]
+      [%code Shen.Symbol([%e Ppx_stage.Lift.string v])]
   | String(v) -> [%code Shen.Symbol([%e Ppx_stage.Lift.string v])]
   | If(cond, ifTrue, ifFalse) -> [%code
     if Shen.assert_bool [%e compile env cond] then
@@ -74,7 +66,7 @@ let rec compile (env : env) (expr : ast)
       {env with lexical = (Env.add arg [%code a] env.lexical) } body]]
       |> Obj.magic
   | App(Symbol(f), a) when (Env.mem f env.functions) -> [%code
-    Obj.obj [%e [%code Shen.sfunction [%e Ppx_stage.Lift.string f]]
+    Obj.obj [%e [%code Hashtbl.find Shen.functions [%e Ppx_stage.Lift.string f]]
     |> Obj.magic] [%e compile env a]
   ]
   | App(f, a) -> [%code
@@ -109,7 +101,10 @@ let rec compile_toplevel
     let _ = 
       [%e lambda_form
         params
-        { lexical = Env.empty; functions = env }
+        { 
+          lexical = Env.empty;
+          functions = Env.add name (List.length params) env
+        }
         body
       ] |> Shen.define [%e Ppx_stage.Lift.string name]
     in
