@@ -30,9 +30,13 @@ end
 
 module Env = Map.Make(String)
 
+type func
+  = Ref of Obj.t Ppx_stage.code
+  | Func of Obj.t Ppx_stage.code
+
 type env = {
   lexical: Shen.t Ppx_stage.code Env.t;
-  functions: Obj.t Ppx_stage.code Env.t;
+  functions: func Env.t;
 }
 
 let empty_env = {
@@ -66,8 +70,9 @@ let rec compile (env : env) (expr : ast)
       {env with lexical = (Env.add arg [%code a] env.lexical) } body]]
       |> Obj.magic
   | App(Symbol(f), a) when (Env.mem f env.functions) -> [%code
-    [%e Env.find f env.functions
-    |> Obj.magic] [%e compile env a]
+    [%e match Env.find f env.functions with
+      | Func(f) -> Obj.magic f
+      | Ref(f) -> [%code ![%e f |> Obj.magic]]] [%e compile env a]
   ]
   | App(f, a) -> [%code
     [%e compile env f |> Obj.magic] [%e compile env a]
@@ -77,6 +82,27 @@ let rec compile (env : env) (expr : ast)
     with Shen.Exn(_) as e ->
       Shen.assert_function [%e compile env handler] (Shen.Error e)
   ]
+
+let rec find_forward_calls (env : func Env.t) (expr : ast)
+= match expr with
+| If(cond, ifTrue, ifFalse) ->
+  find_forward_calls env cond
+  @ find_forward_calls env ifTrue
+  @ find_forward_calls env ifFalse
+| Let(bind, v, body) ->
+  find_forward_calls env v
+  @ find_forward_calls env body
+| Lambda(arg, body) ->
+  find_forward_calls env body
+| App(Symbol(f), a) when (not (Env.mem f env)) ->
+  f :: find_forward_calls env a
+| App(f, a) ->
+  find_forward_calls env f
+  @ find_forward_calls env a
+| Trap(body, handler) ->
+  find_forward_calls env body
+  @ find_forward_calls env handler
+| _ -> []
 
 let rec lambda_form (params : string list) (env : env) (body : ast)
   : (Shen.t -> Shen.t) Ppx_stage.code
@@ -93,25 +119,53 @@ let rec lambda_form (params : string list) (env : env) (body : ast)
       body
     |> Obj.magic]
   ]
-  | [] -> compile env body |> Obj.magic
+| [] -> compile env body |> Obj.magic
 
 module FSet = Map.Make(String)
 
 let rec compile_toplevel
-(env : Obj.t Ppx_stage.code Env.t) (exprs : toplevel list) = match exprs with
-  | Defun(name, (p :: params), body) :: rest -> [%code
-    let rec f = fun x ->
-      [%e lambda_form
-        params
-        { 
-          lexical = Env.empty;
-          functions = Env.add name (Obj.magic [%code f]) env
-        }
-        body
+(env : func Env.t) (exprs : toplevel list) = match exprs with
+  | (Defun(name, (p :: params), body) :: rest) as all ->
+  let fcalls = find_forward_calls env body in
+  if (List.length fcalls) = 0 then
+    if Env.mem name env then
+      match Env.find name env with
+      | Func(_) -> assert false
+      | Ref(f) -> let f = Obj.magic f in [%code
+        [%e f] := (fun x ->
+          [%e lambda_form
+            params
+            {
+              lexical = Env.add p [%code x] Env.empty;
+              functions = env
+            }
+            body
+          ]);
+          Shen.define [%e Ppx_stage.Lift.string name] ![%e f] |> ignore;
+          [%e compile_toplevel env rest]
       ]
-    in
-    [%e compile_toplevel (Env.add name (Obj.magic [%code f]) env) rest]
-  ]
+    else
+      [%code
+        let rec f = fun x ->
+          [%e lambda_form
+            params
+            { 
+              lexical = Env.add p [%code x] Env.empty;
+              functions = Env.add name (Func((Obj.magic [%code f]))) env
+            }
+            body
+          ]
+        in
+        Shen.define [%e Ppx_stage.Lift.string name] f |> ignore;
+        [%e compile_toplevel (Env.add name (Func(Obj.magic [%code f])) env) rest]
+      ]
+  else
+    [%code
+      let rec f = ref (fun x -> x) |> Obj.magic in
+      [%e compile_toplevel
+        (Env.add
+          (List.hd fcalls) (Ref(Obj.magic [%code f])) env) all]
+    ]
   | Expr(body) :: rest -> [%code
     [%e compile { lexical = Env.empty; functions = env } body] |> ignore;
     [%e compile_toplevel env rest]

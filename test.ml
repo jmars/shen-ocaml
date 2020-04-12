@@ -23,8 +23,11 @@ module Shen'1 =
       match s with | Boolean b -> b | _ -> raise (Exn "Expected a bool")
   end
 let _ =
-  let rec f x x = x in
-  ((f (Shen'1.Number 1.)) (Shen'1.Number 2.))
-  |> fun (Shen'1.Number(f)) -> f
-  |> string_of_float
-  |> print_endline; ()
+  let rec f = (ref (fun x -> x)) |> Obj.magic in
+  let f''1 = f in
+  let rec f x = let x''1 = x in fun x -> ((!f''1) x) x''1 in
+  (Shen'1.define "add" f) |> ignore;
+  f''1 := ((fun x -> fun x -> x));
+  (Shen'1.define "two" (!f''1)) |> ignore;
+  ((f (Shen'1.Number 1.)) (Shen'1.Number 2.)) |> ignore;
+  ()

@@ -1,3 +1,5 @@
-(defun add (X Y) Y)
+(defun add (X Y) (two Y X))
+
+(defun two (X Y) Y)
 
 (add 1 2)
