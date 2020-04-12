@@ -32,7 +32,7 @@ module Env = Map.Make(String)
 
 type env = {
   lexical: Shen.t Ppx_stage.code Env.t;
-  functions: int Env.t;
+  functions: Obj.t Ppx_stage.code Env.t;
 }
 
 let empty_env = {
@@ -66,7 +66,7 @@ let rec compile (env : env) (expr : ast)
       {env with lexical = (Env.add arg [%code a] env.lexical) } body]]
       |> Obj.magic
   | App(Symbol(f), a) when (Env.mem f env.functions) -> [%code
-    Obj.obj [%e [%code Hashtbl.find Shen.functions [%e Ppx_stage.Lift.string f]]
+    [%e Env.find f env.functions
     |> Obj.magic] [%e compile env a]
   ]
   | App(f, a) -> [%code
@@ -79,40 +79,42 @@ let rec compile (env : env) (expr : ast)
   ]
 
 let rec lambda_form (params : string list) (env : env) (body : ast)
-  : Shen.t Ppx_stage.code
+  : (Shen.t -> Shen.t) Ppx_stage.code
   = match params with
   | p :: [] -> [%code
     fun x -> [%e compile
       { env with lexical = Env.add p [%code x] env.lexical }
       body
     ]
-  ] |> Obj.magic
+  ]
   | p :: rest -> [%code
     fun x -> [%e lambda_form rest
       { env with lexical = Env.add p [%code x] env.lexical }
       body
-    ]
-  ] |> Obj.magic
-  | [] -> assert false
+    |> Obj.magic]
+  ]
+  | [] -> compile env body |> Obj.magic
+
+module FSet = Map.Make(String)
 
 let rec compile_toplevel
-(env : int Env.t) (exprs : toplevel list) = match exprs with
-  | Defun(name, params, body) :: rest -> [%code
-    let _ = 
+(env : Obj.t Ppx_stage.code Env.t) (exprs : toplevel list) = match exprs with
+  | Defun(name, (p :: params), body) :: rest -> [%code
+    let rec f = fun x ->
       [%e lambda_form
         params
         { 
           lexical = Env.empty;
-          functions = Env.add name (List.length params) env
+          functions = Env.add name (Obj.magic [%code f]) env
         }
         body
-      ] |> Shen.define [%e Ppx_stage.Lift.string name]
+      ]
     in
-    [%e compile_toplevel (Env.add name (List.length params) env) rest]
+    [%e compile_toplevel (Env.add name (Obj.magic [%code f]) env) rest]
   ]
   | Expr(body) :: rest -> [%code
-    let _ = [%e compile
-      { lexical = Env.empty; functions = env } body] in
+    [%e compile { lexical = Env.empty; functions = env } body] |> ignore;
     [%e compile_toplevel env rest]
   ]
   | [] -> [%code ()]
+  | _ -> assert false

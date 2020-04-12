@@ -23,8 +23,8 @@ module Shen'1 =
       match s with | Boolean b -> b | _ -> raise (Exn "Expected a bool")
   end
 let _ =
-  let _ = (fun x -> fun x -> x) |> (Shen'1.define "add") in
-  let _ =
-    (Obj.obj (Hashtbl.find Shen'1.functions "add") (Shen'1.Number 1.))
-      (Shen'1.Number 2.) in
-  ()
+  let rec f x x = x in
+  ((f (Shen'1.Number 1.)) (Shen'1.Number 2.))
+  |> fun (Shen'1.Number(f)) -> f
+  |> string_of_float
+  |> print_endline; ()

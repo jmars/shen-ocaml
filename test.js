@@ -2,9 +2,8 @@
 'use strict';
 
 var Obj = require("bs-platform/lib/js/obj.js");
-var Block = require("bs-platform/lib/js/block.js");
-var Curry = require("bs-platform/lib/js/curry.js");
 var Hashtbl = require("bs-platform/lib/js/hashtbl.js");
+var Pervasives = require("bs-platform/lib/js/pervasives.js");
 var Caml_exceptions = require("bs-platform/lib/js/caml_exceptions.js");
 
 var Exn = Caml_exceptions.create("Test.Shen'1.Exn");
@@ -48,11 +47,7 @@ var Shen$prime1 = /* module */[
   /* assert_bool */assert_bool
 ];
 
-Hashtbl.add(functions, "add", (function (x, x$1) {
-        return x$1;
-      }));
-
-Curry._2(Hashtbl.find(functions, "add"), /* Number */Block.__(3, [1]), /* Number */Block.__(3, [2]));
+console.log(Pervasives.string_of_float(2));
 
 exports.Shen$prime1 = Shen$prime1;
 /* functions Not a pure module */
