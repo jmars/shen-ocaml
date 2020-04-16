@@ -1,4 +1,4 @@
 (executable
  (name klambda)
- (libraries sexplib str)
+ (libraries sexplib str unix)
  (preprocess (pps ppx_stage.ppx ppx_deriving.show)))

@@ -4,3 +4,6 @@ _build
 node_modules
 *.cm*
 a.out
+amalg
+ocaml
+klambda
